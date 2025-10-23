@@ -1,0 +1,55 @@
+[package]
+edition      = "2024"
+name         = "portable-weather-station"
+rust-version = "1.88"
+version      = "0.1.0"
+
+
+[[bin]]
+name = "portable-weather-station"
+path = "./src/bin/main.rs"
+
+[dependencies]
+esp-hal = { version = "=1.0.0-rc.1", features = ["esp32", "unstable"] }
+esp-bootloader-esp-idf = { version = "0.2.0", features = ["esp32"] }
+critical-section = "1.2.0"
+esp-rtos =  {version = "0.1.1", features = ["embassy", "esp32", "esp-radio"]}
+embassy-executor = { version = "0.9.1", features = [] }
+
+embassy-net = { version = "0.7.0", features = [
+    "dhcpv4",
+    "medium-ethernet",
+    "tcp",
+    "udp",
+] }
+embassy-time = {version = "0.5.0"}
+embedded-io-async = "0.6.1"
+esp-alloc = {version = "0.9.0", features = ["esp32"]}
+esp-backtrace = {version = "0.18.0", features = ["esp32", "println"]}
+static_cell = "2.1.0"
+esp-radio = { version = "0.16.0", features = [
+    "log-04",
+    "unstable",
+    "wifi",
+    "esp32"
+] }
+esp-radio-rtos-driver = "0.1.0"
+
+esp32_hal_dht11_driver = {version = "0.1.2", features = ["esp32"]}
+esp-println = {version = "0.16.0", features = ["esp32"]}
+esp-phy = {version = "0.1.0", features = ["esp32"]}
+
+
+[profile.dev]
+# Rust debug is too slow.
+# For debug builds always builds with some optimization
+opt-level = "s"
+
+[profile.release]
+codegen-units    = 1     # LLVM can perform better optimizations using a single thread
+debug            = 2
+debug-assertions = false
+incremental      = false
+lto              = 'fat'
+opt-level        = 's'
+overflow-checks  = false
