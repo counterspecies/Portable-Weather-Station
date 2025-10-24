@@ -44,40 +44,6 @@ const PASSWORD: &str = match option_env!("PASSWORD") {
 };
 
 
-
-struct Wifi {
-    stack: embassy_net::Stack<'static>,
-}
-
-impl Wifi {
-    pub async fn new(peripherals: esp_hal::peripherals::WIFI<'static>, spawner: Spawner) -> Self {
-        let esp_radio_ctrl = &*mk_static!(Controller<'static>, esp_radio::init().unwrap());
-        let (controller, interfaces) =
-        esp_radio::wifi::new(esp_radio_ctrl, peripherals, Default::default()).unwrap();
-
-        let config = embassy_net::Config::dhcpv4(Default::default());
-        let interface = interfaces.sta;
-
-        let rng = Rng::new();
-        let seed = (rng.random() as u64) << 32 | rng.random() as u64;
-
-        let (stack, runner ) = embassy_net::new(
-            interface,
-            config,
-            mk_static!(StackResources<3>, StackResources::<3>::new()),
-            seed,
-        );
-
-        spawner.spawn(connection(controller)).ok();
-        spawner.spawn(net_task(runner)).ok();
-
-        Self {
-            stack,
-        }
-    }
-
-}
-
 #[esp_rtos::main]
 async fn main(spawner: Spawner) -> ! {
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
@@ -119,44 +85,45 @@ async fn main(spawner: Spawner) -> ! {
 
     loop {
         Timer::after(Duration::from_millis(1_000)).await;
-
-        let mut socket = TcpSocket::new(wifi.stack, &mut rx_buffer, &mut tx_buffer);
-
-        socket.set_timeout(Some(embassy_time::Duration::from_secs(10)));
-
-        let remote_endpoint = (Ipv4Addr::new(142, 250, 185, 115), 80);
-        println!("connecting...");
-        let r = socket.connect(remote_endpoint).await;
-        if let Err(e) = r {
-            println!("connect error: {:?}", e);
-            continue;
-        }
-        println!("connected!");
-        let mut buf = [0; 1024];
-        loop {
-            use embedded_io_async::Write;
-            let r = socket
-                .write_all(b"GET / HTTP/1.0\r\nHost: www.mobile-j.de\r\n\r\n")
-                .await;
-            if let Err(e) = r {
-                println!("write error: {:?}", e);
-                break;
-            }
-            let n = match socket.read(&mut buf).await {
-                Ok(0) => {
-                    println!("read EOF");
-                    break;
-                }
-                Ok(n) => n,
-                Err(e) => {
-                    println!("read error: {:?}", e);
-                    break;
-                }
-            };
-            println!("{}", core::str::from_utf8(&buf[..n]).unwrap());
-        }
+        http_get_request(wifi.stack, &mut rx_buffer, &mut tx_buffer).await;
         Timer::after(Duration::from_millis(3000)).await;
     }
+}
+
+
+
+
+struct Wifi {
+    stack: embassy_net::Stack<'static>,
+}
+
+impl Wifi {
+    pub async fn new(peripherals: esp_hal::peripherals::WIFI<'static>, spawner: Spawner) -> Self {
+        let esp_radio_ctrl = &*mk_static!(Controller<'static>, esp_radio::init().unwrap());
+        let (controller, interfaces) =
+        esp_radio::wifi::new(esp_radio_ctrl, peripherals, Default::default()).unwrap();
+
+        let config = embassy_net::Config::dhcpv4(Default::default());
+        let interface = interfaces.sta;
+
+        let rng = Rng::new();
+        let seed = (rng.random() as u64) << 32 | rng.random() as u64;
+
+        let (stack, runner ) = embassy_net::new(
+            interface,
+            config,
+            mk_static!(StackResources<3>, StackResources::<3>::new()),
+            seed,
+        );
+
+        spawner.spawn(connection(controller)).ok();
+        spawner.spawn(net_task(runner)).ok();
+
+        Self {
+            stack,
+        }
+    }
+
 }
 
 
@@ -192,7 +159,7 @@ async fn connection(mut controller: WifiController<'static>) {
                 println!("{:?}", ap);
             }
         }
-        println!("About to connect...");
+        println!("Attempting to connect to {}...", SSID);
 
         match controller.connect_async().await {
             Ok(_) => {
@@ -210,6 +177,47 @@ async fn connection(mut controller: WifiController<'static>) {
 #[embassy_executor::task]
 async fn net_task(mut runner: Runner<'static, WifiDevice<'static>>) {
     runner.run().await
+}
+
+async fn http_get_request<'a>(
+    stack: embassy_net::Stack<'static>,
+    rx_buffer: &'a mut [u8],
+    tx_buffer: &'a mut [u8],
+) {
+    let mut socket = TcpSocket::new(stack, rx_buffer, tx_buffer);
+    socket.set_timeout(Some(embassy_time::Duration::from_secs(10)));
+
+    let remote_endpoint = (Ipv4Addr::new(142, 250, 185, 115), 80);
+    println!("connecting...");
+    let r = socket.connect(remote_endpoint).await;
+    if let Err(e) = r {
+        println!("connect error: {:?}", e);
+        return;
+    }
+    println!("connected!");
+    let mut buf = [0; 1024];
+    loop {
+        use embedded_io_async::Write;
+        let r = socket
+            .write_all(b"GET / HTTP/1.0\r\nHost: www.mobile-j.de\r\n\r\n")
+            .await;
+        if let Err(e) = r {
+            println!("write error: {:?}", e);
+            break;
+        }
+        let n = match socket.read(&mut buf).await {
+            Ok(0) => {
+                println!("read EOF");
+                break;
+            }
+            Ok(n) => n,
+            Err(e) => {
+                println!("read error: {:?}", e);
+                break;
+            }
+        };
+        println!("{}", core::str::from_utf8(&buf[..n]).unwrap());
+    }
 }
 
 #[panic_handler]
