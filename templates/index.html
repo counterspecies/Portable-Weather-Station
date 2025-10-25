@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weather Station</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
+        .container { background: white; padding: 30px; border-radius: 10px; max-width: 1000px; margin: 0 auto; }
+        h1 { color: #333; }
+        .data { font-size: 24px; margin: 20px 0; display: inline-block; margin-right: 40px; }
+        .label { color: #666; font-size: 14px; }
+        .value { color: #0066cc; font-weight: bold; font-size: 32px; }
+        .timestamp { color: #999; font-size: 12px; margin-top: 20px; }
+        .no-data { color: #cc0000; }
+        .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px; }
+        .chart-container { position: relative; height: 300px; background: #f9f9f9; padding: 15px; border-radius: 8px; }
+        .current-data { margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📡 Weather Station</h1>
+        
+        <div class="current-data">
+            {% if weather_data %}
+                <div class="data">
+                    <div class="label">Temperature</div>
+                    <div class="value"><span id="tempValue">{{ weather_data.get('temp', 'N/A') }}</span>°C / <span id="tempValueF">--</span>°F</div>
+                </div>
+                <div class="data">
+                    <div class="label">Humidity</div>
+                    <div class="value">{{ weather_data.get('hum', 'N/A') }}%</div>
+                </div>
+                <div class="timestamp">Last update: {{ last_update }}</div>
+            {% else %}
+                <div class="no-data">⏳ Waiting for data from ESP32...</div>
+            {% endif %}
+        </div>
+
+        <div class="charts">
+            <div class="chart-container">
+                <canvas id="tempChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="humChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tempChart, humChart;
+        
+        function celsiusToFahrenheit(celsius) {
+            return (celsius * 9/5) + 32;
+        }
+        
+        function updateTemperatureDisplay() {
+            const tempC = document.getElementById('tempValue').textContent;
+            if (tempC !== 'N/A' && tempC !== '--') {
+                const tempF = celsiusToFahrenheit(parseFloat(tempC)).toFixed(1);
+                document.getElementById('tempValueF').textContent = tempF;
+            }
+        }
+        
+        function updateCharts() {
+            fetch('/history')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length === 0) return;
+                    
+                    const labels = data.map(d => d.time);
+                    const temps = data.map(d => celsiusToFahrenheit(d.temp));
+                    const hums = data.map(d => d.hum);
+                    
+                    // Update or create temperature chart
+                    if (tempChart) {
+                        tempChart.data.labels = labels;
+                        tempChart.data.datasets[0].data = temps;
+                        tempChart.update();
+                    } else {
+                        const tempCtx = document.getElementById('tempChart').getContext('2d');
+                        tempChart = new Chart(tempCtx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: 'Temperature (°F)',
+                                    data: temps,
+                                    borderColor: '#ff6b6b',
+                                    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                                    tension: 0.4,
+                                    fill: true
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { display: true }
+                                },
+                                scales: {
+                                    y: {
+                                        min: 0,
+                                        max: 100
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Update or create humidity chart
+                    if (humChart) {
+                        humChart.data.labels = labels;
+                        humChart.data.datasets[0].data = hums;
+                        humChart.update();
+                    } else {
+                        const humCtx = document.getElementById('humChart').getContext('2d');
+                        humChart = new Chart(humCtx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: 'Humidity (%)',
+                                    data: hums,
+                                    borderColor: '#4ecdc4',
+                                    backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                                    tension: 0.4,
+                                    fill: true
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { display: true }
+                                },
+                                scales: {
+                                    y: {
+                                        min: 0,
+                                        max: 100
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+        }
+        
+        // Update charts on page load
+        updateCharts();
+        updateTemperatureDisplay();
+        
+        // Refresh charts every 5 seconds
+        setInterval(() => {
+            updateCharts();
+            updateTemperatureDisplay();
+        }, 5000);
+    </script>
+</body>
+</html>

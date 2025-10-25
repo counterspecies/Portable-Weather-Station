@@ -1188,6 +1188,7 @@ dependencies = [
  "esp-radio-rtos-driver",
  "esp-rtos",
  "esp32_hal_dht11_driver",
+ "itoa",
  "static_cell",
 ]
 
