@@ -174,13 +174,21 @@ async fn connection(mut controller: WifiController<'static>) {
         }
         println!("About to connect...");
 
-        match controller.connect_async().await {
-            Ok(_) => {
+        // Add timeout to prevent hanging after deep sleep resets
+        match embassy_time::with_timeout(
+            Duration::from_secs(10),
+            controller.connect_async()
+        ).await {
+            Ok(Ok(_)) => {
                 println!("Wifi connected!");
                 Timer::after(Duration::from_millis(2000)).await;
             }
-            Err(e) => {
+            Ok(Err(e)) => {
                 println!("Failed to connect to wifi: {e:?}");
+                Timer::after(Duration::from_millis(5000)).await
+            }
+            Err(_) => {
+                println!("Connection timeout - WiFi may be in bad state, retrying...");
                 Timer::after(Duration::from_millis(5000)).await
             }
         }
