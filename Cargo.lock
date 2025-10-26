@@ -819,15 +819,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "esp32_hal_dht11_driver"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41e80c6df64223ab1370211931d09cda7ec9dff9322efa065362f2ddde01dbcc"
-dependencies = [
- "esp-hal",
-]
-
-[[package]]
 name = "esp32c2"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1187,7 +1178,6 @@ dependencies = [
  "esp-radio",
  "esp-radio-rtos-driver",
  "esp-rtos",
- "esp32_hal_dht11_driver",
  "itoa",
  "static_cell",
 ]

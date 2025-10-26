@@ -5,32 +5,38 @@ import os
 
 app = Flask(__name__)
 
-# Database configuration
-DB_PATH = 'weather_data.db'
+DATABASE_FILE = 'weather_data.db'
 
 def init_db():
-    """Initialize the SQLite database"""
-    if not os.path.exists(DB_PATH):
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE readings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                temperature REAL,
-                humidity REAL
-            )
-        ''')
-        conn.commit()
-        conn.close()
-        print("📦 Database initialized")
-
-def get_latest_data():
-    """Get the latest weather reading from database"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    """Initialize SQLite database with weather_readings table."""
+    conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
-    cursor.execute('SELECT temperature, humidity, timestamp FROM readings ORDER BY id DESC LIMIT 1')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS weather_readings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            temperature REAL NOT NULL,
+            humidity REAL NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+    print(f"✅ Database initialized: {DATABASE_FILE}")
+
+def get_db_connection():
+    """Get a connection to the SQLite database."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def get_latest_reading():
+    """Get the latest weather reading from the database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT temperature, humidity, timestamp FROM weather_readings ORDER BY id DESC LIMIT 1')
     row = cursor.fetchone()
     conn.close()
     
@@ -38,83 +44,79 @@ def get_latest_data():
         return {
             'temp': row['temperature'],
             'hum': row['humidity'],
-            'time': datetime.fromisoformat(row['timestamp']).strftime("%H:%M:%S")
+            'timestamp': row['timestamp']
         }
-    return {}
-
-def get_last_update():
-    """Get the timestamp of the last update"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('SELECT timestamp FROM readings ORDER BY id DESC LIMIT 1')
-    row = cursor.fetchone()
-    conn.close()
-    
-    if row:
-        return datetime.fromisoformat(row[0]).strftime("%H:%M:%S")
     return None
-
-def insert_reading(temperature, humidity):
-    """Insert a new weather reading into the database"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(
-        'INSERT INTO readings (temperature, humidity) VALUES (?, ?)',
-        (temperature, humidity)
-    )
-    conn.commit()
-    conn.close()
-
-def get_all_history(limit=10000):
-    """Get historical data from database"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute('SELECT temperature, humidity, timestamp FROM readings ORDER BY id DESC LIMIT ?', (limit,))
-    rows = cursor.fetchall()
-    conn.close()
-    
-    # Reverse to get chronological order
-    data = []
-    for row in reversed(rows):
-        data.append({
-            'temp': row['temperature'],
-            'hum': row['humidity'],
-            'time': datetime.fromisoformat(row['timestamp']).strftime("%H:%M:%S")
-        })
-    return data
-
-# Initialize database on startup
-init_db()
 
 @app.route('/', methods=['GET'])
 def home():
-    weather_data = get_latest_data()
-    last_update = get_last_update()
+    reading = get_latest_reading()
+    weather_data = {}
+    last_update = None
+    
+    if reading:
+        weather_data = {'temp': reading['temp'], 'hum': reading['hum']}
+        # Format timestamp as HH:MM:SS
+        dt = datetime.strptime(reading['timestamp'], '%Y-%m-%d %H:%M:%S')
+        last_update = dt.strftime("%H:%M:%S")
+    
     return render_template('index.html', weather_data=weather_data, last_update=last_update)
 
 @app.route('/data', methods=['GET', 'POST'])
 def data():
     if request.method == 'POST':
         # Handle data sent from ESP device
-        json_data = request.json
-        temp = json_data.get('temp')
-        hum = json_data.get('hum')
+        data_json = request.json
+        temp = data_json.get('temp')
+        hum = data_json.get('hum')
         
-        insert_reading(temp, hum)
-        
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        print(f"📊 Data received: temp={temp}°C, hum={hum}% at {timestamp}")
-        
-        return jsonify({"status": "success"})
+        if temp is not None and hum is not None:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT INTO weather_readings (temperature, humidity)
+                VALUES (?, ?)
+            ''', (temp, hum))
+            
+            conn.commit()
+            conn.close()
+            
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            print(f"📊 Data received: temp={temp}°C, humidity={hum}% at {timestamp}")
+            return jsonify({"status": "success"})
+        else:
+            return jsonify({"status": "error", "message": "Missing temperature or humidity data"}), 400
     else:
         # Return the latest data
-        return jsonify(get_latest_data())
+        reading = get_latest_reading()
+        if reading:
+            return jsonify({'temp': reading['temp'], 'hum': reading['hum']})
+        return jsonify({})
 
 @app.route('/history', methods=['GET'])
 def history():
-    # Return all historical data as JSON
-    return jsonify(get_all_history())
+    """Return all historical weather data as JSON."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT temperature, humidity, timestamp FROM weather_readings ORDER BY id ASC')
+    rows = cursor.fetchall()
+    conn.close()
+    
+    history_list = []
+    for row in rows:
+        # Format timestamp as HH:MM:SS
+        dt = datetime.strptime(row['timestamp'], '%Y-%m-%d %H:%M:%S')
+        history_list.append({
+            'temp': row['temperature'],
+            'hum': row['humidity'],
+            'time': dt.strftime("%H:%M:%S")
+        })
+    
+    return jsonify(history_list)
 
 if __name__ == '__main__':
+    # Initialize database on startup
+    init_db()
     app.run(host='0.0.0.0', port=5000)
