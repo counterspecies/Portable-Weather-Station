@@ -44,6 +44,10 @@ const PASSWORD: &str = match option_env!("PASSWORD") {
     Some(s) => s,
     None => "",
 };
+const SERVER_IP: &str = match option_env!("SERVER_IP") {
+    Some(s) => s,
+    None => "172.20.10.2",
+};
 /*===================================================== */
 
 static STOP_BLINKING: AtomicBool = AtomicBool::new(false);
@@ -155,6 +159,32 @@ fn convert_signed(signed: u8) -> (bool, u8) {
     let sign = signed & 0x80 != 0;
     let magnitude = signed & 0x7F;
     (sign, magnitude)
+}
+
+// Helper function to parse IP address string (e.g., "192.168.1.1" -> Ipv4Addr)
+fn parse_ipv4(ip_str: &str) -> Ipv4Addr {
+    let mut octets = [172u8, 20, 10, 2]; // Default IP
+    let mut octet_idx = 0;
+    let mut current_num = 0u8;
+    
+    for c in ip_str.chars() {
+        if c == '.' {
+            if octet_idx < 4 {
+                octets[octet_idx] = current_num;
+                octet_idx += 1;
+                current_num = 0;
+            }
+        } else if c.is_ascii_digit() {
+            current_num = current_num.saturating_mul(10).saturating_add((c as u8) - b'0');
+        }
+    }
+    
+    // Store the last octet
+    if octet_idx < 4 {
+        octets[octet_idx] = current_num;
+    }
+    
+    Ipv4Addr::new(octets[0], octets[1], octets[2], octets[3])
 }
 
 
@@ -405,8 +435,9 @@ async fn send_weather_data(
     let mut socket = TcpSocket::new(stack, rx_buffer, tx_buffer);
     socket.set_timeout(Some(embassy_time::Duration::from_secs(5)));
 
-    // UPDATE THIS IP ADDRESS to match your laptop's IP on the hotspot network
-    let remote_endpoint = (Ipv4Addr::new(172,20,10,2), 5000);
+    // Parse server IP from environment variable
+    let server_ip = parse_ipv4(SERVER_IP);
+    let remote_endpoint = (server_ip, 5000);
     println!("Connecting to server at {:?}...", remote_endpoint);
     
     match embassy_time::with_timeout(
