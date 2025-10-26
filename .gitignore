@@ -1,4 +1,10 @@
-# will have compiled files and executables
+# Python virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Compiled files and executables
 debug/
 target/
 .vscode/

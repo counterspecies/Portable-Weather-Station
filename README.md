@@ -2,6 +2,8 @@
 
 A portable weather station built on ESP32 that reads temperature and humidity from a DHT11 sensor, connects to WiFi, and sends data to a Flask web server for visualization and storage.
 
+![Weather Station Hardware](weather-station.jpeg)
+
 ## Key Features
 * **Full-Stack Telemetry:** An end-to-end system capturing, storing, and visualizing real-time sensor data.
 * **High-Performance Firmware:** Built in **Embedded Rust** (no_std) on an ESP32 for robust, async operation.
