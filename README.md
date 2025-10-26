@@ -1,6 +1,13 @@
-# Portable Weather Station
+# Full-Stack IoT Telemetry Weather Station
 
 A portable weather station built on ESP32 that reads temperature and humidity from a DHT11 sensor, connects to WiFi, and sends data to a Flask web server for visualization and storage.
+
+## Key Features
+* **Full-Stack Telemetry:** An end-to-end system capturing, storing, and visualizing real-time sensor data.
+* **High-Performance Firmware:** Built in **Embedded Rust** (no_std) on an ESP32 for robust, async operation.
+* **Time-Series Database:** Persists all historical data using a **Python Flask** API and **SQLite**.
+* **Live Data Dashboard:** A web-based frontend that visualizes both live and historical temperature/humidity data.
+* **Robust & Efficient:** Implements deep sleep for power conservation and a watchdog task to ensure high availability.
 
 ## Hardware
 
@@ -20,12 +27,12 @@ A portable weather station built on ESP32 that reads temperature and humidity fr
 
 ### Backend (Python + Flask)
 - Simple Flask server that receives weather data
-- Stores latest readings and historical data 
+- Persists all incoming time-series data in an SQLite database. 
 - Provides REST API endpoints:
   - `GET /` - Web UI showing latest readings
   - `POST/GET /data` - Send/retrieve weather data
   - `GET /history` - Retrieve historical data as JSON
-- Web interface to display current temperature and humidity
+- Web dashboard to visualize both live and historical data.
 
 ## Building & Running
 
