@@ -11,6 +11,12 @@ A portable weather station built on ESP32 that reads temperature and humidity fr
 
 ## Dashboard
 
+The live dashboard displays:
+- **Current readings** - Real-time temperature (in °C and °F) and humidity percentage
+- **Temperature chart** - Historical temperature trends with live updates
+- **Humidity chart** - Historical humidity trends with live updates
+- **Auto-refresh** - Charts update every 5 seconds to show the latest data
+
 ![Weather Station Dashboard](dashboard.png)
 
 ## Hardware
@@ -36,14 +42,7 @@ A portable weather station built on ESP32 that reads temperature and humidity fr
   - `GET /` - Web UI showing latest readings
   - `POST/GET /data` - Send/retrieve weather data
   - `GET /history` - Retrieve historical data as JSON
-- Web interface to display current temperature and humidity
 
-
-The live dashboard displays:
-- **Current readings** - Real-time temperature (in °C and °F) and humidity percentage
-- **Temperature chart** - Historical temperature trends with live updates
-- **Humidity chart** - Historical humidity trends with live updates
-- **Auto-refresh** - Charts update every 5 seconds to show the latest data
 
 ## Building & Running
 
