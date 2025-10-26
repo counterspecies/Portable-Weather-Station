@@ -1,0 +1,11 @@
+# Rust source files
+*.rs linguist-language=Rust
+
+# Python files
+*.py linguist-language=Python
+
+# Don't count generated/build files
+Cargo.lock linguist-generated=true
+**/*.o linguist-generated=true
+**/*.so linguist-generated=true
+**/*.rlib linguist-generated=true
