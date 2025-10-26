@@ -9,6 +9,10 @@ A portable weather station built on ESP32 that reads temperature and humidity fr
 * **Live Data Dashboard:** A web-based frontend that visualizes both live and historical temperature/humidity data.
 * **Robust & Efficient:** Implements deep sleep for power conservation and a watchdog task to ensure high availability.
 
+## Dashboard
+
+![Weather Station Dashboard](dashboard.png)
+
 ## Hardware
 
 - **Microcontroller**: ESP32
@@ -34,9 +38,6 @@ A portable weather station built on ESP32 that reads temperature and humidity fr
   - `GET /history` - Retrieve historical data as JSON
 - Web interface to display current temperature and humidity
 
-## Dashboard
-
-![Weather Station Dashboard](dashboard.png)
 
 The live dashboard displays:
 - **Current readings** - Real-time temperature (in °C and °F) and humidity percentage
